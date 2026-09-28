@@ -22,6 +22,18 @@
       <button id="settingsBtn" class="icon-btn" aria-label="設定">⚙️</button>
     </header>
 
+    <section class="cycle-bar">
+      <div>
+        <div class="cycle-kicker">DAILY CYCLE</div>
+        <div id="cycleStatus" class="cycle-status">活動中</div>
+        <div id="cycleDetail" class="cycle-detail"></div>
+      </div>
+      <div class="cycle-actions">
+        <button id="wakeBtn" class="cycle-btn wake">☀️ 起床</button>
+        <button id="sleepBtn" class="cycle-btn sleep">🌙 就寝</button>
+      </div>
+    </section>
+
     <section id="runningCard" class="running hidden">
       <div class="running-label">▶ いま実行中</div>
       <h2 id="runningName"></h2>
@@ -42,7 +54,6 @@
       </div>
 
       <div id="cards" class="cards"></div>
-
       <button id="showMoreBtn" class="text-btn">ほかの候補を見る</button>
     </section>
 
@@ -59,11 +70,14 @@
         </div>
         <div id="learningCount" class="count-badge">0</div>
       </div>
+
       <div class="metrics">
         <div class="metric"><strong id="mSelections">0</strong><span>選択</span></div>
         <div class="metric"><strong id="mCompletes">0</strong><span>完了</span></div>
         <div class="metric"><strong id="mSkips">0</strong><span>スキップ</span></div>
       </div>
+
+      <div id="ngramStatus" class="ngram-status"></div>
       <div id="learnInsight" class="insight">まだ学習データがありません。</div>
     </section>
   </div>
@@ -96,7 +110,6 @@
   </dialog>
 
   <div id="toast" class="toast hidden"></div>
-
   <script src="./app.js"></script>
 </body>
 </html>
