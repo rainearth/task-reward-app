@@ -283,6 +283,74 @@ function addTask(name,priority=2){
   saveState();return true;
 }
 
+function normalizeBulkLine(line){
+  let s=(line||"").trim();
+  if(!s) return null;
+
+  s=s
+    .replace(/^[-*•・]\s+/, "")
+    .replace(/^\d+[.)、]\s*/, "")
+    .replace(/^[□☐☑✓✔]\s*/, "")
+    .trim();
+
+  let priority=2;
+  const high=/^(?:\[高\]|【高】|高[:：]|🔴)\s*/;
+  const mid=/^(?:\[中\]|【中】|中[:：]|🟡)\s*/;
+  const low=/^(?:\[低\]|【低】|低[:：]|🟢)\s*/;
+
+  if(high.test(s)){priority=3;s=s.replace(high,"").trim();}
+  else if(low.test(s)){priority=1;s=s.replace(low,"").trim();}
+  else if(mid.test(s)){priority=2;s=s.replace(mid,"").trim();}
+
+  s=s.replace(/^[-–—]\s*/, "").trim();
+  if(!s) return null;
+  if(s.length>60) s=s.slice(0,60).trim();
+  return {name:s,priority};
+}
+
+function bulkAddTasks(text){
+  const parsed=String(text||"")
+    .split(/\r?\n/)
+    .map(normalizeBulkLine)
+    .filter(Boolean);
+
+  if(!parsed.length) return {added:0,duplicates:0};
+
+  const existing=new Set(state.tasks.map(t=>t.name.trim().toLocaleLowerCase("ja-JP")));
+  let added=0,duplicates=0;
+
+  for(const item of parsed){
+    const key=item.name.trim().toLocaleLowerCase("ja-JP");
+    if(existing.has(key)){
+      duplicates++;
+      continue;
+    }
+    state.tasks.push(makeTask(
+      "t_"+Date.now()+"_"+Math.random().toString(36).slice(2,8),
+      item.name,
+      item.priority
+    ));
+    existing.add(key);
+    added++;
+  }
+
+  if(added) saveState();
+  return {added,duplicates};
+}
+
+function aiBulkPrompt(){
+  return [
+    "NextTaskというタスクアプリに一括登録したいです。",
+    "私がやるべきタスクを、1行1タスクで一覧にしてください。",
+    "説明文や見出しは不要です。",
+    "優先度が高いものは [高]、普通は [中]、低いものは [低] を先頭につけてください。",
+    "例:",
+    "[高] 風呂に入る",
+    "[中] ゴミを捨てる",
+    "[低] 本を10分読む"
+  ].join("\n");
+}
+
 function deleteTask(id){
   if(state.currentId===id)state.currentId=null;
   state.tasks=state.tasks.filter(t=>t.id!==id);
@@ -442,6 +510,32 @@ document.getElementById("addTaskBtn").addEventListener("click",()=>{
   const pri=document.getElementById("taskPriority");
   if(addTask(name.value,pri.value)){name.value="";toast("タスクを追加しました");}
 });
+document.getElementById("importBulkBtn").addEventListener("click",()=>{
+  const area=document.getElementById("bulkTasks");
+  const result=bulkAddTasks(area.value);
+  if(!result.added && !result.duplicates){
+    toast("追加できるタスクがありません");
+    return;
+  }
+  area.value="";
+  const extra=result.duplicates?\`・重複 \${result.duplicates}件を除外\`:"";
+  toast(\`\${result.added}件追加しました\${extra}\`);
+});
+
+document.getElementById("copyBulkPromptBtn").addEventListener("click",async()=>{
+  const prompt=aiBulkPrompt();
+  try{
+    await navigator.clipboard.writeText(prompt);
+    toast("AI用の依頼文をコピーしました");
+  }catch(e){
+    const area=document.getElementById("bulkTasks");
+    area.value=prompt;
+    area.focus();
+    area.select();
+    toast("依頼文を入力欄に入れました");
+  }
+});
+
 document.getElementById("exportBtn").addEventListener("click",()=>{
   const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
   const a=document.createElement("a");
