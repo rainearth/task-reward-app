@@ -1,19 +1,60 @@
-const CACHE="nexttask-v5";
-const ASSETS=["./","./index.html","./style.css","./app.js","./manifest.json","./icon-192.png","./icon-512.png"];
-self.addEventListener("install",e=>{
+const CACHE="nexttask-v6";
+const ASSETS=[
+  "./",
+  "./index.html",
+  "./style.css?v=6",
+  "./app.js?v=6",
+  "./manifest.json?v=6",
+  "./icon-192.png",
+  "./icon-512.png"
+];
+
+self.addEventListener("install",event=>{
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));
+  event.waitUntil(
+    caches.open(CACHE).then(cache=>cache.addAll(ASSETS))
+  );
 });
-self.addEventListener("activate",e=>{
-  e.waitUntil(Promise.all([
-    caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))),
-    self.clients.claim()
-  ]));
+
+self.addEventListener("activate",event=>{
+  event.waitUntil((async()=>{
+    const keys=await caches.keys();
+    await Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)));
+    await self.clients.claim();
+
+    const clients=await self.clients.matchAll({
+      type:"window",
+      includeUncontrolled:true
+    });
+
+    await Promise.all(clients.map(client=>{
+      if(!client.navigate) return Promise.resolve();
+      return client.navigate(client.url).catch(()=>{});
+    }));
+  })());
 });
-self.addEventListener("fetch",e=>{
-  e.respondWith(fetch(e.request).then(r=>{
-    const copy=r.clone();
-    caches.open(CACHE).then(c=>c.put(e.request,copy)).catch(()=>{});
-    return r;
-  }).catch(()=>caches.match(e.request)));
+
+self.addEventListener("fetch",event=>{
+  if(event.request.method!=="GET") return;
+
+  event.respondWith((async()=>{
+    const cache=await caches.open(CACHE);
+
+    try{
+      const response=await fetch(event.request,{cache:"no-store"});
+      if(response && response.ok){
+        cache.put(event.request,response.clone()).catch(()=>{});
+      }
+      return response;
+    }catch(e){
+      const cached=await caches.match(event.request);
+      if(cached) return cached;
+
+      if(event.request.mode==="navigate"){
+        return (await caches.match("./index.html")) || (await caches.match("./"));
+      }
+
+      throw e;
+    }
+  })());
 });
