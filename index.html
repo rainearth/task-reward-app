@@ -100,6 +100,21 @@
         <button id="addTaskBtn" type="button" class="primary">追加</button>
       </div>
 
+      <section class="bulk-add">
+        <div class="bulk-head">
+          <div>
+            <div class="section-kicker">AI BULK ADD</div>
+            <h3>AIから一括追加</h3>
+          </div>
+          <button id="copyBulkPromptBtn" type="button" class="secondary mini-btn">AI用依頼文をコピー</button>
+        </div>
+        <textarea id="bulkTasks" rows="7" placeholder="- ゴミを捨てる
+- [高] 風呂に入る
+- [低] 本を10分読む"></textarea>
+        <div class="bulk-hint">1行1タスク。Markdownの箇条書きや番号は自動で除去します。優先度は [高] / [中] / [低] が使えます。</div>
+        <button id="importBulkBtn" type="button" class="primary bulk-btn">まとめて追加</button>
+      </section>
+
       <div id="taskList" class="task-list"></div>
 
       <div class="dialog-actions">
