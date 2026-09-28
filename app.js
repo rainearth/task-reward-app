@@ -80,6 +80,7 @@ function loadState(){
 }
 
 let state=loadState();
+let editingTaskId=null;
 
 function saveState(){
   localStorage.setItem(KEY,JSON.stringify(state));
@@ -351,6 +352,29 @@ function aiBulkPrompt(){
   ].join("\n");
 }
 
+function updateTask(id,name,priority){
+  const t=getTask(id);
+  if(!t) return {ok:false,reason:"notfound"};
+
+  name=String(name||"").trim();
+  if(!name) return {ok:false,reason:"empty"};
+
+  const duplicate=state.tasks.some(x=>
+    x.id!==id && x.name.trim().toLocaleLowerCase("ja-JP")===name.toLocaleLowerCase("ja-JP")
+  );
+  if(duplicate) return {ok:false,reason:"duplicate"};
+
+  t.name=name.slice(0,60);
+  t.priority=Math.max(1,Math.min(3,Number(priority)||2));
+  editingTaskId=null;
+  saveState();
+  return {ok:true};
+}
+
+function priorityLabel(priority){
+  return priority===3?"高":priority===1?"低":"中";
+}
+
 function deleteTask(id){
   if(state.currentId===id)state.currentId=null;
   state.tasks=state.tasks.filter(t=>t.id!==id);
@@ -432,14 +456,70 @@ function renderCycle(){
 
 function renderTaskList(){
   const box=document.getElementById("taskList");
-  if(!state.tasks.length){box.innerHTML='<div class="insight">タスクがありません。</div>';return;}
-  box.innerHTML=state.tasks.map(t=>`
-    <div class="task-row">
-      <div><b>${esc(t.name)}</b><small>選択 ${t.selected} / 完了 ${t.completed} / あとで ${t.deferred}</small></div>
-      <button type="button" data-delete="${t.id}">削除</button>
-    </div>`).join("");
+  if(!state.tasks.length){
+    box.innerHTML='<div class="insight">タスクがありません。</div>';
+    return;
+  }
+
+  box.innerHTML=state.tasks.map(t=>{
+    if(editingTaskId===t.id){
+      return `
+        <div class="task-row task-row-edit">
+          <div class="task-edit-fields">
+            <input data-edit-name="${t.id}" maxlength="60" value="${esc(t.name)}" aria-label="タスク名">
+            <select data-edit-priority="${t.id}" aria-label="優先度">
+              <option value="1" ${t.priority===1?"selected":""}>優先度 低</option>
+              <option value="2" ${t.priority===2?"selected":""}>優先度 中</option>
+              <option value="3" ${t.priority===3?"selected":""}>優先度 高</option>
+            </select>
+          </div>
+          <div class="task-edit-actions">
+            <button type="button" class="save-task-btn" data-save="${t.id}">保存</button>
+            <button type="button" class="cancel-task-btn" data-cancel="${t.id}">取消</button>
+          </div>
+        </div>`;
+    }
+
+    return `
+      <div class="task-row">
+        <div class="task-row-main">
+          <b>${esc(t.name)}</b>
+          <small>優先度 ${priorityLabel(t.priority)} ・ 選択 ${t.selected} / 完了 ${t.completed} / あとで ${t.deferred}</small>
+        </div>
+        <div class="task-row-actions">
+          <button type="button" class="edit-task-btn" data-edit="${t.id}">編集</button>
+          <button type="button" class="delete-task-btn" data-delete="${t.id}">削除</button>
+        </div>
+      </div>`;
+  }).join("");
+
+  box.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>{
+    editingTaskId=b.dataset.edit;
+    renderTaskList();
+    const input=box.querySelector(`[data-edit-name="${editingTaskId}"]`);
+    if(input){input.focus();input.select();}
+  }));
+
+  box.querySelectorAll("[data-cancel]").forEach(b=>b.addEventListener("click",()=>{
+    editingTaskId=null;
+    renderTaskList();
+  }));
+
+  box.querySelectorAll("[data-save]").forEach(b=>b.addEventListener("click",()=>{
+    const id=b.dataset.save;
+    const name=box.querySelector(`[data-edit-name="${id}"]`)?.value||"";
+    const priority=box.querySelector(`[data-edit-priority="${id}"]`)?.value||2;
+    const result=updateTask(id,name,priority);
+    if(result.ok) toast("タスクを更新しました");
+    else if(result.reason==="duplicate") toast("同じ名前のタスクがあります");
+    else toast("タスク名を入力してください");
+  }));
+
   box.querySelectorAll("[data-delete]").forEach(b=>b.addEventListener("click",()=>{
-    if(confirm("このタスクを削除しますか？"))deleteTask(b.dataset.delete);
+    if(confirm("このタスクを削除しますか？")){
+      if(editingTaskId===b.dataset.delete) editingTaskId=null;
+      deleteTask(b.dataset.delete);
+    }
   }));
 }
 
@@ -518,8 +598,8 @@ document.getElementById("importBulkBtn").addEventListener("click",()=>{
     return;
   }
   area.value="";
-  const extra=result.duplicates?`・重複 \${result.duplicates}件を除外`:"";
-  toast(`\${result.added}件追加しました\${extra}`);
+  const extra=result.duplicates?`・重複 ${result.duplicates}件を除外`:"";
+  toast(`${result.added}件追加しました${extra}`);
 });
 
 document.getElementById("copyBulkPromptBtn").addEventListener("click",async()=>{
