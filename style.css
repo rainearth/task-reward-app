@@ -119,6 +119,20 @@ dialog::backdrop{background:rgba(15,23,42,.42);backdrop-filter:blur(4px)}
 .dialog-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .label{font-size:12px;font-weight:800;color:#697085}
 .add-row{display:grid;grid-template-columns:1fr 135px auto;gap:8px;margin-top:6px}
+.bulk-add{
+  margin-top:18px;padding-top:18px;border-top:1px solid var(--line)
+}
+.bulk-head{
+  display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px
+}
+.bulk-head h3{margin:2px 0 0;font-size:17px}
+textarea{
+  width:100%;resize:vertical;border:1px solid var(--line);background:#fff;border-radius:14px;
+  padding:13px 14px;color:var(--text);min-height:150px;font:inherit;line-height:1.5
+}
+.bulk-hint{font-size:11px;color:var(--muted);line-height:1.55;margin:8px 2px}
+.bulk-btn{width:100%;margin-top:4px}
+.mini-btn{padding:9px 10px;font-size:12px;white-space:nowrap}
 .task-list{display:grid;gap:8px;margin-top:18px}
 .task-row{
   display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;
@@ -146,4 +160,6 @@ dialog::backdrop{background:rgba(15,23,42,.42);backdrop-filter:blur(4px)}
   .cycle-btn{padding:9px 11px}
   .add-row{grid-template-columns:1fr 112px}
   .add-row .primary{grid-column:1/-1}
+  .bulk-head{align-items:flex-start}
+  .mini-btn{font-size:11px}
 }
