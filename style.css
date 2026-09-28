@@ -218,8 +218,6 @@ textarea{
   .active-route-name{font-size:24px}
   .active-route-actions{grid-template-columns:1fr}
 }
-}
-
 
 /* Route-card interaction */
 .cards{display:grid;gap:13px}
@@ -280,4 +278,11 @@ textarea{
 @keyframes routeMorph{
   from{opacity:.72;transform:scale(.985)}
   to{opacity:1;transform:scale(1)}
+}
+
+/* Route-card mobile overrides */
+@media(max-width:540px){
+  .choice-name{font-size:21px}
+  .active-route-name{font-size:24px}
+  .active-route-actions{grid-template-columns:1fr}
 }
