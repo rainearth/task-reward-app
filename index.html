@@ -8,9 +8,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="NextTask">
   <title>NextTask</title>
-  <link rel="manifest" href="./manifest.json?v=6">
+  <link rel="manifest" href="./manifest.json?v=7">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=6">
+  <link rel="stylesheet" href="./style.css?v=7">
 </head>
 <body>
   <div class="shell">
@@ -19,7 +19,10 @@
         <div class="eyebrow">LEARNING TASK NAVIGATOR</div>
         <h1>NextTask</h1>
       </div>
-      <button id="settingsBtn" class="icon-btn" aria-label="設定">⚙️</button>
+      <div class="topbar-actions">
+        <button id="statsBtn" class="icon-btn" aria-label="統計">📊</button>
+        <button id="settingsBtn" class="icon-btn" aria-label="設定">⚙️</button>
+      </div>
     </header>
 
     <section class="cycle-bar">
@@ -82,6 +85,65 @@
     </section>
   </div>
 
+
+  <dialog id="statsDialog">
+    <form method="dialog" class="dialog-card stats-dialog-card">
+      <div class="dialog-head">
+        <div>
+          <div class="section-kicker">INSIGHTS</div>
+          <h2>統計・N-gram</h2>
+        </div>
+        <button class="icon-btn" value="cancel" aria-label="閉じる">✕</button>
+      </div>
+
+      <section class="stats-summary">
+        <div class="stat-box"><strong id="sTasks">0</strong><span>タスク</span></div>
+        <div class="stat-box"><strong id="sSelections">0</strong><span>選択</span></div>
+        <div class="stat-box"><strong id="sCompletes">0</strong><span>完了</span></div>
+        <div class="stat-box"><strong id="sCompletionRate">0%</strong><span>完了率</span></div>
+        <div class="stat-box"><strong id="sCycles">0</strong><span>サイクル</span></div>
+        <div class="stat-box"><strong id="sDeferred">0</strong><span>あとで</span></div>
+      </section>
+
+      <section class="stats-section">
+        <div class="stats-section-head">
+          <div>
+            <div class="section-kicker">TASK STATS</div>
+            <h3>タスク別</h3>
+          </div>
+        </div>
+        <div id="taskStats" class="stats-list"></div>
+      </section>
+
+      <section class="stats-section">
+        <div class="stats-section-head">
+          <div>
+            <div class="section-kicker">CONTEXT</div>
+            <h3>時間帯・曜日別</h3>
+          </div>
+        </div>
+        <div id="contextStats" class="stats-list"></div>
+      </section>
+
+      <section class="stats-section">
+        <div class="stats-section-head">
+          <div>
+            <div class="section-kicker">RELATIONS</div>
+            <h3>N-gramの関係</h3>
+          </div>
+          <select id="ngramFilter" class="compact-select" aria-label="N-gramの種類">
+            <option value="all">すべて</option>
+            <option value="2">2-gram</option>
+            <option value="3">3-gram</option>
+            <option value="4">4-gram</option>
+          </select>
+        </div>
+        <div class="stats-note">古い関係ほど時間減衰します。棒が長いほど、現在の学習上その流れが強い状態です。</div>
+        <div id="ngramRelations" class="relation-list"></div>
+      </section>
+    </form>
+  </dialog>
+
   <dialog id="settingsDialog">
     <form method="dialog" class="dialog-card">
       <div class="dialog-head">
@@ -125,6 +187,6 @@
   </dialog>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=6"></script>
+  <script src="./app.js?v=7"></script>
 </body>
 </html>
