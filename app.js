@@ -524,15 +524,34 @@ document.getElementById("importBulkBtn").addEventListener("click",()=>{
 
 document.getElementById("copyBulkPromptBtn").addEventListener("click",async()=>{
   const prompt=aiBulkPrompt();
+  const area=document.getElementById("bulkTasks");
+
+  // iPhone/PWAではClipboard APIが使えない場合があるため、
+  // まず必ず画面上に依頼文を表示する。
+  area.value=prompt;
+  area.focus();
+  area.select();
+  area.setSelectionRange(0,area.value.length);
+
+  let copied=false;
+
   try{
-    await navigator.clipboard.writeText(prompt);
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(prompt);
+      copied=true;
+    }
+  }catch(e){}
+
+  if(!copied){
+    try{
+      copied=document.execCommand("copy");
+    }catch(e){}
+  }
+
+  if(copied){
     toast("AI用の依頼文をコピーしました");
-  }catch(e){
-    const area=document.getElementById("bulkTasks");
-    area.value=prompt;
-    area.focus();
-    area.select();
-    toast("依頼文を入力欄に入れました");
+  }else{
+    toast("依頼文を表示しました。長押ししてコピーしてください");
   }
 });
 
