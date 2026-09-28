@@ -14,7 +14,16 @@ body{
 button,input,select{font:inherit}
 button{cursor:pointer}
 button:disabled{opacity:.42;cursor:default}
-.shell{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+.shell{
+  max-width:760px;
+  margin:0 auto;
+  padding-top:20px;
+  padding-top:calc(20px + env(safe-area-inset-top));
+  padding-right:16px;
+  padding-bottom:60px;
+  padding-bottom:calc(60px + env(safe-area-inset-bottom));
+  padding-left:16px
+}
 .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .eyebrow,.section-kicker,.cycle-kicker{font-size:10px;letter-spacing:.16em;font-weight:800;color:#8b93a5}
 h1{font-size:28px;margin:2px 0 0}
@@ -124,7 +133,14 @@ dialog::backdrop{background:rgba(15,23,42,.42);backdrop-filter:blur(4px)}
   padding:11px 14px;border-radius:999px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.2);z-index:20
 }
 @media(max-width:540px){
-  .shell{padding:16px 12px 50px}
+  .shell{
+    padding-top:16px;
+    padding-top:calc(16px + env(safe-area-inset-top));
+    padding-right:12px;
+    padding-bottom:50px;
+    padding-bottom:calc(50px + env(safe-area-inset-bottom));
+    padding-left:12px
+  }
   .cycle-bar{align-items:flex-start}
   .cycle-actions{flex-direction:column}
   .cycle-btn{padding:9px 11px}
