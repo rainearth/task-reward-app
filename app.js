@@ -4,6 +4,8 @@ const KEY = "nexttask_pwa_v2";
 const WAKE = "__WAKE__";
 const SLEEP = "__SLEEP__";
 const MAX_HISTORY = 3;
+const DECAY_HALF_LIFE_DAYS = 30;
+const DECAY_HALF_LIFE_MS = DECAY_HALF_LIFE_DAYS * 24 * 60 * 60 * 1000;
 
 const baseTasks = [
   ["bottle","ペットボトルを捨てる",2],
@@ -96,8 +98,33 @@ function ensureCtx(t,key){
   return t.context[key];
 }
 function smoothRate(success,total){return (success+1)/(total+2);}
-function completionRate(t){return smoothRate(t.completed,t.selected);}
+
+function timeDecayFrom(ts){
+  if(!ts) return 1;
+  const age=Math.max(0,Date.now()-ts);
+  return Math.pow(0.5,age/DECAY_HALF_LIFE_MS);
+}
+
+function completionRate(t){
+  const raw=smoothRate(t.completed,t.selected);
+  const d=timeDecayFrom(t.lastSelected);
+  return 0.5+(raw-0.5)*d;
+}
+
 function historyKey(arr){return arr.join(">");}
+
+function decayedCell(cell,now=Date.now()){
+  if(typeof cell==="number") return cell;
+  if(!cell || typeof cell.w!=="number") return 0;
+  const ts=typeof cell.t==="number"?cell.t:now;
+  const age=Math.max(0,now-ts);
+  return cell.w*Math.pow(0.5,age/DECAY_HALF_LIFE_MS);
+}
+
+function bumpCell(cell,amount=1){
+  const now=Date.now();
+  return {w:decayedCell(cell,now)+amount,t:now};
+}
 
 function appendHistory(token){
   state.recentHistory.push(token);
@@ -110,7 +137,7 @@ function recordNgrams(nextId){
     const ctx=historyKey(h.slice(-n));
     const table=state.ngrams[String(n)];
     if(!table[ctx]) table[ctx]={};
-    table[ctx][nextId]=(table[ctx][nextId]||0)+1;
+    table[ctx][nextId]=bumpCell(table[ctx][nextId],1);
   }
 }
 
@@ -122,9 +149,10 @@ function ngramInfo(nextId){
     const ctx=historyKey(h.slice(-n));
     const row=state.ngrams[String(n)][ctx];
     if(!row) continue;
-    const total=Object.values(row).reduce((a,b)=>a+b,0);
+    const now=Date.now();
+    const total=Object.values(row).reduce((a,b)=>a+decayedCell(b,now),0);
     if(!total) continue;
-    const count=row[nextId]||0;
+    const count=decayedCell(row[nextId],now);
     const p=(count+0.5)/(total+0.5*vocab);
     const confidence=total/(total+2+n*2);
     const weight=n*confidence;
@@ -140,7 +168,9 @@ function ngramInfo(nextId){
 function contextRate(t,key){
   const c=t.context[key];
   if(!c||c.selected===0) return 0.5;
-  return smoothRate(c.completed,c.selected);
+  const raw=smoothRate(c.completed,c.selected);
+  const d=timeDecayFrom(t.lastSelected);
+  return 0.5+(raw-0.5)*d;
 }
 function novelty(t){
   if(!t.lastSelected) return 1;
@@ -153,7 +183,7 @@ function utility(t){
   const contextual=contextRate(t,ctx);
   const priority=t.priority/3;
   const novel=novelty(t);
-  const penalty=Math.min(0.35,(t.skipped+t.deferred)*0.025);
+  const penalty=Math.min(0.35,(t.skipped+t.deferred)*0.025)*timeDecayFrom(t.lastSelected);
   return 1.35*comp + 2.10*ng + 0.80*contextual + 0.65*priority + 0.28*novel - penalty;
 }
 
@@ -351,8 +381,9 @@ function strongestNgram(){
     if(ctx.length<n)continue;
     const row=state.ngrams[String(n)][historyKey(ctx)];
     if(!row)continue;
-    const total=Object.values(row).reduce((a,b)=>a+b,0);
-    if(total>0)return {n,total};
+    const now=Date.now();
+    const total=Object.values(row).reduce((a,b)=>a+decayedCell(b,now),0);
+    if(total>0.01)return {n,total};
   }
   return {n:0,total:0};
 }
@@ -374,8 +405,8 @@ function render(){
   document.getElementById("mSkips").textContent=state.totalSkips;
   const ng=strongestNgram();
   document.getElementById("ngramStatus").textContent=ng.n
-    ? `🧠 現在は最大 ${ng.n+1}-gram が利用可能（この文脈 ${ng.total} 回）`
-    : "🧠 可変N-gram学習中：最大4-gramまで自動で深くなります";
+    ? `🧠 最大 ${ng.n+1}-gram 利用中・古い習慣は${DECAY_HALF_LIFE_DAYS}日で半減`
+    : `🧠 可変N-gram学習中・古い習慣は${DECAY_HALF_LIFE_DAYS}日で半減`;
   document.getElementById("learnInsight").textContent=bestInsight();
   renderCycle();renderRunning();renderCards();renderTaskList();
 }
