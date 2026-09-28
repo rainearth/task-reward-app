@@ -81,10 +81,49 @@ function loadState(){
 
 let state=loadState();
 let editingTaskId=null;
+let routeTransitioning=false;
+
+function persistState(){
+  localStorage.setItem(KEY,JSON.stringify(state));
+}
 
 function saveState(){
-  localStorage.setItem(KEY,JSON.stringify(state));
+  persistState();
   render();
+}
+
+function nextFrame(){
+  return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+}
+
+async function animateFromRect(element,fromRect,delay=0){
+  if(!element || !fromRect) return;
+  const toRect=element.getBoundingClientRect();
+  const dx=fromRect.left-toRect.left;
+  const dy=fromRect.top-toRect.top;
+  const sx=fromRect.width/Math.max(1,toRect.width);
+  const sy=fromRect.height/Math.max(1,toRect.height);
+
+  element.style.transformOrigin="top left";
+  element.style.transition="none";
+  element.style.transform=`translate(${dx}px,${dy}px) scale(${sx},${sy})`;
+  element.style.opacity="0.74";
+  element.style.zIndex="12";
+
+  await nextFrame();
+  if(delay) await new Promise(resolve=>setTimeout(resolve,delay));
+
+  element.style.transition="transform 360ms cubic-bezier(.2,.8,.2,1), opacity 260ms ease";
+  element.style.transform="translate(0,0) scale(1,1)";
+  element.style.opacity="1";
+
+  setTimeout(()=>{
+    element.style.removeProperty("transform-origin");
+    element.style.removeProperty("transition");
+    element.style.removeProperty("transform");
+    element.style.removeProperty("opacity");
+    element.style.removeProperty("z-index");
+  },420+delay);
 }
 
 function nowContext(){
@@ -225,31 +264,86 @@ function reasons(t){
   return out.slice(0,3);
 }
 
-function selectTask(id){
+async function selectTask(id,sourceCard=null){
+  if(routeTransitioning) return;
   if(!state.cycleActive){toast("起床を押してサイクルを開始してください");return;}
   const t=getTask(id);if(!t)return;
-  t.selected++;t.lastSelected=Date.now();state.totalSelections++;
+
+  routeTransitioning=true;
+  const fromRect=sourceCard?.getBoundingClientRect()||null;
+
+  if(sourceCard){
+    sourceCard.classList.add("route-choosing");
+    document.querySelectorAll(".choice-card").forEach(card=>{
+      if(card!==sourceCard) card.classList.add("route-choice-exit");
+    });
+    await new Promise(resolve=>setTimeout(resolve,170));
+  }
+
+  t.selected++;
+  t.lastSelected=Date.now();
+  state.totalSelections++;
   ensureCtx(t,ctxKey(nowContext())).selected++;
-  state.currentId=id;state.currentStartedAt=Date.now();state.viewOffset=0;
-  saveState();toast("開始しました");
+  state.currentId=id;
+  state.currentStartedAt=Date.now();
+  state.viewOffset=0;
+  persistState();
+  render();
+
+  const active=document.querySelector(".active-route");
+  await animateFromRect(active,fromRect);
+  routeTransitioning=false;
+  toast("ルート開始");
 }
 
-function completeCurrent(){
+async function completeCurrent(){
+  if(routeTransitioning) return;
   const t=getTask(state.currentId);if(!t)return;
-  t.completed++;state.totalCompletes++;
+
+  routeTransitioning=true;
+  const active=document.querySelector(".active-route");
+  const fromRect=active?.getBoundingClientRect()||null;
+  active?.classList.add("route-completing");
+  await new Promise(resolve=>setTimeout(resolve,190));
+
+  t.completed++;
+  state.totalCompletes++;
   ensureCtx(t,ctxKey(nowContext())).completed++;
   recordNgrams(t.id);
   appendHistory(t.id);
-  state.currentId=null;state.currentStartedAt=null;
-  saveState();toast("完了を学習しました ✓");
+  state.currentId=null;
+  state.currentStartedAt=null;
+  persistState();
+  render();
+
+  const nextCards=[...document.querySelectorAll(".choice-card")];
+  await Promise.all(nextCards.map((card,index)=>animateFromRect(card,fromRect,index*55)));
+  routeTransitioning=false;
+  toast("完了 → 次のルートへ ✓");
 }
 
-function skipCurrent(){
+async function skipCurrent(){
+  if(routeTransitioning) return;
   const t=getTask(state.currentId);if(!t)return;
-  t.skipped++;state.totalSkips++;
+
+  routeTransitioning=true;
+  const active=document.querySelector(".active-route");
+  const fromRect=active?.getBoundingClientRect()||null;
+  active?.classList.add("route-skipping");
+  await new Promise(resolve=>setTimeout(resolve,160));
+
+  t.skipped++;
+  state.totalSkips++;
   ensureCtx(t,ctxKey(nowContext())).skipped++;
-  state.currentId=null;state.currentStartedAt=null;
-  saveState();toast("スキップを学習しました");
+  state.currentId=null;
+  state.currentStartedAt=null;
+  persistState();
+  render();
+
+  const nextCards=[...document.querySelectorAll(".choice-card")];
+  await Promise.all(nextCards.map((card,index)=>animateFromRect(card,fromRect,index*45)));
+  routeTransitioning=false;
+  toast("別のルートを表示しました");
 }
 
 function deferTask(id){
@@ -437,8 +531,14 @@ function renderCards(){
         </div>
       </article>`;
 
-    box.querySelector(".route-complete-btn").addEventListener("click",completeCurrent);
-    box.querySelector(".route-skip-btn").addEventListener("click",skipCurrent);
+    box.querySelector(".route-complete-btn").addEventListener("click",e=>{
+      e.stopPropagation();
+      completeCurrent();
+    });
+    box.querySelector(".route-skip-btn").addEventListener("click",e=>{
+      e.stopPropagation();
+      skipCurrent();
+    });
     return;
   }
 
@@ -474,7 +574,7 @@ function renderCards(){
     </article>`).join("");
 
   box.querySelectorAll("[data-start]").forEach(card=>{
-    const choose=()=>selectTask(card.dataset.start);
+    const choose=()=>selectTask(card.dataset.start,card);
     card.addEventListener("click",e=>{
       if(e.target.closest("[data-defer]")) return;
       choose();
@@ -872,7 +972,7 @@ if("serviceWorker" in navigator){
 
   window.addEventListener("load",async()=>{
     try{
-      const registration=await navigator.serviceWorker.register("./sw.js?v=8");
+      const registration=await navigator.serviceWorker.register("./sw.js?v=9");
       await registration.update();
     }catch(e){}
   });
