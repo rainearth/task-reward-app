@@ -523,6 +523,149 @@ function renderTaskList(){
   }));
 }
 
+function tokenLabel(token){
+  if(token===WAKE) return "☀️ 起床";
+  if(token===SLEEP) return "🌙 就寝";
+  const t=getTask(token);
+  return t ? t.name : "（削除済み）";
+}
+
+function collectNgramRelations(filter="all"){
+  const rows=[];
+  const now=Date.now();
+
+  for(let n=1;n<=MAX_HISTORY;n++){
+    const gram=n+1;
+    if(filter!=="all" && Number(filter)!==gram) continue;
+
+    const table=state.ngrams[String(n)]||{};
+    for(const [ctx,row] of Object.entries(table)){
+      const history=ctx.split(">").filter(Boolean);
+      for(const [nextId,cell] of Object.entries(row||{})){
+        const strength=decayedCell(cell,now);
+        if(strength<0.05) continue;
+
+        const sequence=[...history,nextId].map(tokenLabel);
+        rows.push({
+          gram,
+          strength,
+          label:sequence.join(" → ")
+        });
+      }
+    }
+  }
+
+  return rows
+    .sort((a,b)=>b.strength-a.strength)
+    .slice(0,40);
+}
+
+function aggregateContextStats(){
+  const map={};
+
+  for(const t of state.tasks){
+    for(const [key,c] of Object.entries(t.context||{})){
+      if(!map[key]) map[key]={selected:0,completed:0,skipped:0};
+      map[key].selected+=c.selected||0;
+      map[key].completed+=c.completed||0;
+      map[key].skipped+=c.skipped||0;
+    }
+  }
+
+  return Object.entries(map)
+    .map(([key,v])=>({key,...v}))
+    .sort((a,b)=>b.selected-a.selected);
+}
+
+function renderStats(){
+  const totalSelected=state.totalSelections||0;
+  const totalCompleted=state.totalCompletes||0;
+  const completionRatePct=totalSelected
+    ? Math.round((totalCompleted/totalSelected)*100)
+    : 0;
+
+  document.getElementById("sTasks").textContent=state.tasks.length;
+  document.getElementById("sSelections").textContent=totalSelected;
+  document.getElementById("sCompletes").textContent=totalCompleted;
+  document.getElementById("sCompletionRate").textContent=completionRatePct+"%";
+  document.getElementById("sCycles").textContent=state.cycleNumber||1;
+  document.getElementById("sDeferred").textContent=state.totalDeferred||0;
+
+  const taskBox=document.getElementById("taskStats");
+  const taskRows=[...state.tasks]
+    .sort((a,b)=>(b.selected||0)-(a.selected||0));
+
+  if(!taskRows.length){
+    taskBox.innerHTML='<div class="stats-empty">まだタスクがありません。</div>';
+  }else{
+    taskBox.innerHTML=taskRows.map(t=>{
+      const rate=t.selected?Math.round((t.completed/t.selected)*100):0;
+      return `
+        <div class="stat-row">
+          <div class="stat-row-top">
+            <div class="stat-row-name">${esc(t.name)}</div>
+            <div class="stat-row-value">${t.selected?rate+"%":"未選択"}</div>
+          </div>
+          <div class="stat-row-meta">選択 ${t.selected} ・ 完了 ${t.completed} ・ スキップ ${t.skipped} ・ あとで ${t.deferred}</div>
+          <div class="stat-bar"><i style="width:${t.selected?Math.min(100,rate):0}%"></i></div>
+        </div>`;
+    }).join("");
+  }
+
+  const contextBox=document.getElementById("contextStats");
+  const contexts=aggregateContextStats();
+
+  if(!contexts.length){
+    contextBox.innerHTML='<div class="stats-empty">時間帯データはまだありません。</div>';
+  }else{
+    const maxSelected=Math.max(...contexts.map(x=>x.selected),1);
+    contextBox.innerHTML=contexts.map(c=>{
+      const rate=c.selected?Math.round((c.completed/c.selected)*100):0;
+      const width=Math.max(4,Math.round((c.selected/maxSelected)*100));
+      return `
+        <div class="stat-row">
+          <div class="stat-row-top">
+            <div class="stat-row-name">${esc(c.key)}</div>
+            <div class="stat-row-value">${rate}%</div>
+          </div>
+          <div class="stat-row-meta">選択 ${c.selected} ・ 完了 ${c.completed} ・ スキップ ${c.skipped}</div>
+          <div class="stat-bar context-bar"><i style="width:${width}%"></i></div>
+        </div>`;
+    }).join("");
+  }
+
+  renderNgramRelations();
+}
+
+function renderNgramRelations(){
+  const box=document.getElementById("ngramRelations");
+  const filter=document.getElementById("ngramFilter")?.value||"all";
+  const rows=collectNgramRelations(filter);
+
+  if(!rows.length){
+    box.innerHTML='<div class="stats-empty">まだ表示できるN-gram関係がありません。行動を完了すると、ここに関係が育っていきます。</div>';
+    return;
+  }
+
+  const max=Math.max(...rows.map(r=>r.strength),0.01);
+  box.innerHTML=rows.map(r=>{
+    const width=Math.max(3,Math.round((r.strength/max)*100));
+    const strength=r.strength>=10
+      ? r.strength.toFixed(1)
+      : r.strength.toFixed(2);
+
+    return `
+      <div class="relation-row">
+        <div class="relation-top">
+          <span class="relation-gram">${r.gram}-gram</span>
+          <span class="relation-strength">強さ ${strength}</span>
+        </div>
+        <div class="relation-sequence">${esc(r.label)}</div>
+        <div class="relation-bar"><i style="width:${width}%"></i></div>
+      </div>`;
+  }).join("");
+}
+
 function strongestNgram(){
   for(let n=3;n>=1;n--){
     const ctx=state.recentHistory.slice(-n);
@@ -582,6 +725,13 @@ document.getElementById("quickAddBtn").addEventListener("click",()=>{
 document.getElementById("quickTask").addEventListener("keydown",e=>{
   if(e.key==="Enter")document.getElementById("quickAddBtn").click();
 });
+
+const statsDialog=document.getElementById("statsDialog");
+document.getElementById("statsBtn").addEventListener("click",()=>{
+  renderStats();
+  statsDialog.showModal();
+});
+document.getElementById("ngramFilter").addEventListener("change",renderNgramRelations);
 
 const dialog=document.getElementById("settingsDialog");
 document.getElementById("settingsBtn").addEventListener("click",()=>dialog.showModal());
@@ -663,7 +813,7 @@ if("serviceWorker" in navigator){
 
   window.addEventListener("load",async()=>{
     try{
-      const registration=await navigator.serviceWorker.register("./sw.js?v=6");
+      const registration=await navigator.serviceWorker.register("./sw.js?v=7");
       await registration.update();
     }catch(e){}
   });
