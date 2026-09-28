@@ -200,6 +200,16 @@ function ranked(){
   return us.map((x,i)=>({...x,p:exps[i]/sum})).sort((a,b)=>b.u-a.u);
 }
 
+function visibleChoiceCount(r){
+  if(r.length<=1) return r.length;
+  const first=r[0].p;
+  const second=r[1]?.p||0;
+
+  if(first>=0.46 && first-second>=0.18) return 1;
+  if(first+second>=0.58) return Math.min(2,r.length);
+  return Math.min(3,r.length);
+}
+
 function reasons(t){
   const out=[];
   const ng=ngramInfo(t.id);
@@ -392,49 +402,98 @@ function esc(s){
 function renderCards(){
   const box=document.getElementById("cards");
   const more=document.getElementById("showMoreBtn");
+  const title=document.getElementById("moveTitle");
+  const kicker=document.getElementById("moveKicker");
+
   if(!state.cycleActive){
-    box.innerHTML='<div class="sleeping"><strong>🌙 就寝サイクル中</strong>「☀️ 起床」を押すと履歴を新しいサイクルとして開始します。<br>前日の行動列とはつながりません。</div>';
+    title.textContent="次のサイクルを待機中";
+    kicker.textContent="ROUTE PAUSED";
+    box.innerHTML='<div class="sleeping"><strong>🌙 就寝サイクル中</strong>「☀️ 起床」を押すと、新しいルート選択が始まります。</div>';
     more.classList.add("hidden");
     return;
   }
-  more.classList.remove("hidden");
-  const r=ranked();
-  if(!r.length){
-    box.innerHTML='<div class="insight">タスクを追加してください。</div>';
+
+  const current=getTask(state.currentId);
+  if(current){
+    title.textContent="いま進んでいるルート";
+    kicker.textContent="CURRENT ROUTE";
+    more.classList.add("hidden");
+
+    const min=state.currentStartedAt
+      ? Math.floor((Date.now()-state.currentStartedAt)/60000)
+      : 0;
+
+    box.innerHTML=`
+      <article class="route-card active-route">
+        <div class="active-route-top">
+          <span class="active-route-state">▶ 実行中</span>
+          <span class="active-route-time">${min>0?`約 ${min}分`:"開始したばかり"}</span>
+        </div>
+        <div class="active-route-name">${esc(current.name)}</div>
+        <div class="active-route-note">このカードが現在のルートです</div>
+        <div class="active-route-actions">
+          <button type="button" class="route-complete-btn">✓ 完了</button>
+          <button type="button" class="route-skip-btn">↩ 別のルートへ</button>
+        </div>
+      </article>`;
+
+    box.querySelector(".route-complete-btn").addEventListener("click",completeCurrent);
+    box.querySelector(".route-skip-btn").addEventListener("click",skipCurrent);
     return;
   }
+
+  title.textContent="次のルートを選ぶ";
+  kicker.textContent="CHOOSE NEXT";
+  const r=ranked();
+
+  if(!r.length){
+    box.innerHTML='<div class="insight">タスクを追加すると、ここにルート候補が出ます。</div>';
+    more.classList.add("hidden");
+    return;
+  }
+
+  const count=visibleChoiceCount(r);
   const start=state.viewOffset%Math.max(1,r.length);
   const ordered=[...r.slice(start),...r.slice(0,start)];
-  const shown=ordered.slice(0,Math.min(3,ordered.length));
+  const shown=ordered.slice(0,count);
+
+  more.classList.toggle("hidden",r.length<=count);
+
   box.innerHTML=shown.map((x,i)=>`
-    <article class="card">
-      <div class="card-top">
-        <div>
-          <div class="rank">#${i+1}</div>
-          <div class="task-name">${esc(x.t.name)}</div>
-        </div>
-        <div class="prob">${Math.round(x.p*100)}%<small>予測</small></div>
+    <article class="route-card choice-card" data-start="${x.t.id}" role="button" tabindex="0" aria-label="${esc(x.t.name)}を選ぶ">
+      <div class="choice-top">
+        <span class="choice-index">ROUTE ${String(i+1).padStart(2,"0")}</span>
+        <span class="choice-prob">${Math.round(x.p*100)}%</span>
       </div>
+      <div class="choice-name">${esc(x.t.name)}</div>
       <div class="reason">${reasons(x.t).map(v=>`<span class="chip ${v.includes("gram")?"ngram":""}">${esc(v)}</span>`).join("")}</div>
-      <div class="card-actions">
-        <button class="start-btn" data-start="${x.t.id}">これをやる</button>
-        <button class="defer-btn" data-defer="${x.t.id}">あとで</button>
+      <div class="choice-bottom">
+        <span>このルートを選ぶ</span>
+        <button type="button" class="choice-defer" data-defer="${x.t.id}">あとで</button>
       </div>
     </article>`).join("");
-  box.querySelectorAll("[data-start]").forEach(b=>b.addEventListener("click",()=>selectTask(b.dataset.start)));
-  box.querySelectorAll("[data-defer]").forEach(b=>b.addEventListener("click",()=>deferTask(b.dataset.defer)));
-}
 
-function renderRunning(){
-  const t=getTask(state.currentId);
-  const box=document.getElementById("runningCard");
-  if(!t){box.classList.add("hidden");return;}
-  box.classList.remove("hidden");
-  document.getElementById("runningName").textContent=t.name;
-  const min=state.currentStartedAt?Math.floor((Date.now()-state.currentStartedAt)/60000):0;
-  document.getElementById("runningMeta").textContent=min>0?`開始から約 ${min} 分`:"始めたばかり";
-}
+  box.querySelectorAll("[data-start]").forEach(card=>{
+    const choose=()=>selectTask(card.dataset.start);
+    card.addEventListener("click",e=>{
+      if(e.target.closest("[data-defer]")) return;
+      choose();
+    });
+    card.addEventListener("keydown",e=>{
+      if(e.key==="Enter" || e.key===" "){
+        e.preventDefault();
+        choose();
+      }
+    });
+  });
 
+  box.querySelectorAll("[data-defer]").forEach(button=>{
+    button.addEventListener("click",e=>{
+      e.stopPropagation();
+      deferTask(button.dataset.defer);
+    });
+  });
+}
 function renderCycle(){
   const status=document.getElementById("cycleStatus");
   const detail=document.getElementById("cycleDetail");
@@ -699,7 +758,7 @@ function render(){
     ? `🧠 最大 ${ng.n+1}-gram 利用中・古い習慣は${DECAY_HALF_LIFE_DAYS}日で半減`
     : `🧠 可変N-gram学習中・古い習慣は${DECAY_HALF_LIFE_DAYS}日で半減`;
   document.getElementById("learnInsight").textContent=bestInsight();
-  renderCycle();renderRunning();renderCards();renderTaskList();
+  renderCycle();renderCards();renderTaskList();
 }
 
 function toast(msg){
@@ -709,13 +768,13 @@ function toast(msg){
   toast.timer=setTimeout(()=>t.classList.add("hidden"),1600);
 }
 
-document.getElementById("completeBtn").addEventListener("click",completeCurrent);
-document.getElementById("skipBtn").addEventListener("click",skipCurrent);
 document.getElementById("wakeBtn").addEventListener("click",markWake);
 document.getElementById("sleepBtn").addEventListener("click",markSleep);
 
 document.getElementById("showMoreBtn").addEventListener("click",()=>{
-  state.viewOffset=(state.viewOffset+3)%Math.max(1,ranked().length);
+  const r=ranked();
+  const step=Math.max(1,visibleChoiceCount(r));
+  state.viewOffset=(state.viewOffset+step)%Math.max(1,r.length);
   renderCards();
 });
 document.getElementById("quickAddBtn").addEventListener("click",()=>{
@@ -813,7 +872,7 @@ if("serviceWorker" in navigator){
 
   window.addEventListener("load",async()=>{
     try{
-      const registration=await navigator.serviceWorker.register("./sw.js?v=7");
+      const registration=await navigator.serviceWorker.register("./sw.js?v=8");
       await registration.update();
     }catch(e){}
   });
