@@ -653,6 +653,19 @@ document.getElementById("resetBtn").addEventListener("click",()=>{
 });
 
 if("serviceWorker" in navigator){
-  window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+  let refreshing=false;
+
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{
+    if(refreshing) return;
+    refreshing=true;
+    window.location.reload();
+  });
+
+  window.addEventListener("load",async()=>{
+    try{
+      const registration=await navigator.serviceWorker.register("./sw.js?v=6");
+      await registration.update();
+    }catch(e){}
+  });
 }
 render();
