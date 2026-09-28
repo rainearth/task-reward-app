@@ -1,10 +1,10 @@
-const CACHE="nexttask-v8";
+const CACHE="nexttask-v9";
 const ASSETS=[
   "./",
   "./index.html",
-  "./style.css?v=8",
-  "./app.js?v=8",
-  "./manifest.json?v=8",
+  "./style.css?v=9",
+  "./app.js?v=9",
+  "./manifest.json?v=9",
   "./icon-192.png",
   "./icon-512.png"
 ];
