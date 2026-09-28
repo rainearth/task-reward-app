@@ -286,3 +286,32 @@ textarea{
   .active-route-name{font-size:24px}
   .active-route-actions{grid-template-columns:1fr}
 }
+
+
+/* Continuous card morph transitions */
+.route-card{will-change:transform,opacity}
+.choice-card.route-choosing{
+  transform:scale(.965);
+  opacity:.88;
+  box-shadow:0 16px 40px rgba(17,24,39,.14);
+  border-color:#cfd5ff;
+}
+.choice-card.route-choice-exit{
+  opacity:0;
+  transform:scale(.96) translateY(8px);
+  pointer-events:none;
+}
+.active-route.route-completing{
+  transform:scale(.96);
+  opacity:.72;
+}
+.active-route.route-skipping{
+  transform:translateX(-10px) scale(.97);
+  opacity:.62;
+}
+.choice-card.route-choosing,
+.choice-card.route-choice-exit,
+.active-route.route-completing,
+.active-route.route-skipping{
+  transition:transform 180ms cubic-bezier(.2,.8,.2,1),opacity 160ms ease,box-shadow 180ms ease,border-color 180ms ease
+}
