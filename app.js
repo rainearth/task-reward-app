@@ -518,8 +518,8 @@ document.getElementById("importBulkBtn").addEventListener("click",()=>{
     return;
   }
   area.value="";
-  const extra=result.duplicates?\`・重複 \${result.duplicates}件を除外\`:"";
-  toast(\`\${result.added}件追加しました\${extra}\`);
+  const extra=result.duplicates?`・重複 \${result.duplicates}件を除外`:"";
+  toast(`\${result.added}件追加しました\${extra}`);
 });
 
 document.getElementById("copyBulkPromptBtn").addEventListener("click",async()=>{
