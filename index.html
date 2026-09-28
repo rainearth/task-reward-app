@@ -8,9 +8,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="NextTask">
   <title>NextTask</title>
-  <link rel="manifest" href="./manifest.json?v=7">
+  <link rel="manifest" href="./manifest.json?v=8">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./style.css?v=7">
+  <link rel="stylesheet" href="./style.css?v=8">
 </head>
 <body>
   <div class="shell">
@@ -37,27 +37,17 @@
       </div>
     </section>
 
-    <section id="runningCard" class="running hidden">
-      <div class="running-label">▶ いま実行中</div>
-      <h2 id="runningName"></h2>
-      <div class="running-meta" id="runningMeta"></div>
-      <div class="running-actions">
-        <button id="completeBtn" class="primary">✓ 完了</button>
-        <button id="skipBtn" class="secondary">↷ スキップ</button>
-      </div>
-    </section>
-
     <section>
       <div class="section-head">
         <div>
-          <div class="section-kicker">NEXT MOVE</div>
-          <h2>次に何をする？</h2>
+          <div id="moveKicker" class="section-kicker">NEXT MOVE</div>
+          <h2 id="moveTitle">次に何をする？</h2>
         </div>
         <div id="contextLabel" class="context-pill"></div>
       </div>
 
       <div id="cards" class="cards"></div>
-      <button id="showMoreBtn" class="text-btn">ほかの候補を見る</button>
+      <button id="showMoreBtn" class="text-btn">別のルートを見る</button>
     </section>
 
     <section class="quick-add">
@@ -187,6 +177,6 @@
   </dialog>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="./app.js?v=7"></script>
+  <script src="./app.js?v=8"></script>
 </body>
 </html>
